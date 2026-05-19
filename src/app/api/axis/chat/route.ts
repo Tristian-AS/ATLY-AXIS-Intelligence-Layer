@@ -8,6 +8,9 @@ import { audit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Claude tool-use loops routinely run 15-30s. Vercel's default is 10s
+// (Hobby) / 15s (Pro). Bumping to the max allowed on each tier.
+export const maxDuration = 60;
 
 interface ChatBody {
   message: string;

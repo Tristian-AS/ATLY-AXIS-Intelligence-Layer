@@ -64,7 +64,8 @@ export function ChatPanel({ initialMessages }: { initialMessages: StoredMessage[
     setInput("");
 
     try {
-      const res = await fetch("/api/axis/chat", {
+      // Use the JSON path; streaming SSE consumption can land in a follow-up.
+      const res = await fetch("/api/axis/chat?stream=0", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text }),
