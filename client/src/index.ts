@@ -137,19 +137,31 @@ export class AxisClient {
       const suffix = qs.toString() ? `?${qs}` : "";
       return this.request<{ projects: AxisProject[] }>("GET", `/api/axis/projects${suffix}`);
     },
+    get: (id: string) =>
+      this.request<{ project: AxisProject }>("GET", `/api/axis/projects/${id}`),
     create: (input: Partial<AxisProject> & { name: string }) =>
       this.request<{ project: AxisProject; wikiPath: string }>("POST", "/api/axis/projects", input),
+    update: (id: string, patch: Partial<AxisProject> & { deliverables?: string[]; budgetDollars?: number }) =>
+      this.request<{ project: AxisProject }>("PATCH", `/api/axis/projects/${id}`, patch),
+    remove: (id: string) =>
+      this.request<{ ok: true }>("DELETE", `/api/axis/projects/${id}`),
   };
 
   // ----- campaigns -----
   campaigns = {
     list: () => this.request<{ campaigns: AxisCampaign[] }>("GET", "/api/axis/campaigns"),
+    get: (id: string) =>
+      this.request<{ campaign: AxisCampaign }>("GET", `/api/axis/campaigns/${id}`),
     create: (input: Partial<AxisCampaign> & { name: string }) =>
       this.request<{ campaign: AxisCampaign; wikiPath: string }>(
         "POST",
         "/api/axis/campaigns",
         input
       ),
+    update: (id: string, patch: Partial<AxisCampaign> & { hooks?: string[] }) =>
+      this.request<{ campaign: AxisCampaign }>("PATCH", `/api/axis/campaigns/${id}`, patch),
+    remove: (id: string) =>
+      this.request<{ ok: true }>("DELETE", `/api/axis/campaigns/${id}`),
     generatePlan: (input: { clientName: string; brief: string; goal?: string; persist?: boolean }) =>
       this.request("POST", "/api/axis/campaigns", { action: "generate", ...input }),
   };
@@ -176,13 +188,27 @@ export class AxisClient {
   // ----- invoices -----
   invoices = {
     list: () => this.request<{ invoices: AxisInvoice[] }>("GET", "/api/axis/invoices"),
+    get: (id: string) =>
+      this.request<{ invoice: AxisInvoice }>("GET", `/api/axis/invoices/${id}`),
     create: (input: { clientName?: string; clientId?: string; amountDollars: number; dueDate?: string; notes?: string }) =>
       this.request<{ invoice: AxisInvoice }>("POST", "/api/axis/invoices", input),
+    update: (id: string, patch: { status?: string; amountDollars?: number; dueDate?: string; notes?: string }) =>
+      this.request<{ invoice: AxisInvoice }>("PATCH", `/api/axis/invoices/${id}`, patch),
+    markPaid: (id: string) =>
+      this.request<{ invoice: AxisInvoice }>("PATCH", `/api/axis/invoices/${id}`, { status: "paid" }),
+    markSent: (id: string) =>
+      this.request<{ invoice: AxisInvoice }>("PATCH", `/api/axis/invoices/${id}`, { status: "sent" }),
+    void: (id: string) =>
+      this.request<{ invoice: AxisInvoice }>("PATCH", `/api/axis/invoices/${id}`, { status: "void" }),
+    remove: (id: string) =>
+      this.request<{ ok: true }>("DELETE", `/api/axis/invoices/${id}`),
   };
 
   // ----- expenses -----
   expenses = {
     list: () => this.request<{ expenses: AxisExpense[] }>("GET", "/api/axis/expenses"),
+    get: (id: string) =>
+      this.request<{ expense: AxisExpense }>("GET", `/api/axis/expenses/${id}`),
     log: (input: {
       vendor: string;
       category: string;
@@ -191,6 +217,10 @@ export class AxisClient {
       notes?: string;
       taxDeductible?: boolean;
     }) => this.request<{ expense: AxisExpense }>("POST", "/api/axis/expenses", input),
+    update: (id: string, patch: Partial<AxisExpense> & { amountDollars?: number }) =>
+      this.request<{ expense: AxisExpense }>("PATCH", `/api/axis/expenses/${id}`, patch),
+    remove: (id: string) =>
+      this.request<{ ok: true }>("DELETE", `/api/axis/expenses/${id}`),
   };
 
   // ----- tasks -----
@@ -199,11 +229,35 @@ export class AxisClient {
       const suffix = status ? `?status=${encodeURIComponent(status)}` : "";
       return this.request<{ tasks: AxisTask[] }>("GET", `/api/axis/tasks${suffix}`);
     },
+    get: (id: string) =>
+      this.request<{ task: AxisTask }>("GET", `/api/axis/tasks/${id}`),
     create: (input: Partial<AxisTask> & { title: string }) =>
       this.request<{ task: AxisTask }>("POST", "/api/axis/tasks", input),
-    update: (input: { id: string; status?: string }) =>
-      this.request<{ task: AxisTask }>("PATCH", "/api/axis/tasks", input),
+    update: (input: { id: string; status?: string; title?: string; detail?: string; priority?: string; waitingOn?: string; dueDate?: string }) =>
+      this.request<{ task: AxisTask }>("PATCH", `/api/axis/tasks/${input.id}`, input),
+    complete: (id: string) =>
+      this.request<{ task: AxisTask }>("PATCH", `/api/axis/tasks/${id}`, { status: "done" }),
+    remove: (id: string) =>
+      this.request<{ ok: true }>("DELETE", `/api/axis/tasks/${id}`),
   };
+
+  // ----- bulk import -----
+  importBulk = (payload: {
+    clients?: unknown[];
+    projects?: unknown[];
+    campaigns?: unknown[];
+    invoices?: unknown[];
+    expenses?: unknown[];
+    tasks?: unknown[];
+    contentPosts?: unknown[];
+    memoryNotes?: unknown[];
+  }) =>
+    this.request<{
+      ok: boolean;
+      totalWritten: number;
+      totalErrors: number;
+      reports: Array<{ table: string; rowsReceived: number; rowsWritten: number; errors: Array<{ index: number; message: string }> }>;
+    }>("POST", "/api/axis/import", payload);
 
   // ----- memory -----
   memory = {

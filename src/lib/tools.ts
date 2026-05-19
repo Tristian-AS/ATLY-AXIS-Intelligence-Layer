@@ -254,6 +254,196 @@ export const AXIS_TOOLS: Tool[] = [
       properties: { path: { type: "string", description: "Relative path under wiki/. Default empty = root." } },
     },
   },
+
+  // --- Update / delete ---
+  {
+    name: "updateClient",
+    description: "Edit fields on an existing client. Use when something needs correcting or the next action changes.",
+    input_schema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Client id; use listClients if you only know the name." },
+        name: { type: "string" },
+        handle: { type: "string" },
+        website: { type: "string" },
+        industry: { type: "string" },
+        stage: { type: "string", enum: ["lead", "active", "paused", "churned"] },
+        brandNotes: { type: "string" },
+        nextAction: { type: "string" },
+        retainerDollars: { type: "number" },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "deleteClient",
+    description: "Permanently delete a client and everything cascade-linked to it. Confirm with Tristian before calling.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "string" } },
+      required: ["id"],
+    },
+  },
+  {
+    name: "updateProject",
+    description: "Edit a project's fields (status, brief, deliverables, dates, risks, next action).",
+    input_schema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        name: { type: "string" },
+        status: { type: "string", enum: ["active", "paused", "done", "stalled"] },
+        brief: { type: "string" },
+        deliverables: { type: "array", items: { type: "string" } },
+        budgetDollars: { type: "number" },
+        startDate: { type: "string" },
+        dueDate: { type: "string" },
+        risks: { type: "string" },
+        nextAction: { type: "string" },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "deleteProject",
+    description: "Delete a project. Confirm with Tristian first.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "string" } },
+      required: ["id"],
+    },
+  },
+  {
+    name: "updateCampaign",
+    description: "Edit a campaign (concept, hero direction, hooks, goals, status, dates).",
+    input_schema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        name: { type: "string" },
+        concept: { type: "string" },
+        heroDirection: { type: "string" },
+        hooks: { type: "array", items: { type: "string" } },
+        goals: { type: "string" },
+        status: { type: "string", enum: ["draft", "live", "wrapped"] },
+        startDate: { type: "string" },
+        endDate: { type: "string" },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "deleteCampaign",
+    description: "Delete a campaign.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "string" } },
+      required: ["id"],
+    },
+  },
+  {
+    name: "updateInvoice",
+    description: "Edit an invoice — change status (draft → sent → paid → overdue → void), amount, due date, notes. Setting status to 'paid' stamps paidAt automatically.",
+    input_schema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        status: { type: "string", enum: ["draft", "sent", "paid", "overdue", "void"] },
+        amountDollars: { type: "number" },
+        dueDate: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "deleteInvoice",
+    description: "Delete an invoice. Confirm with Tristian.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "string" } },
+      required: ["id"],
+    },
+  },
+  {
+    name: "updateExpense",
+    description: "Edit a logged expense (vendor, category, amount, notes, taxDeductible).",
+    input_schema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        vendor: { type: "string" },
+        category: { type: "string" },
+        amountDollars: { type: "number" },
+        occurredAt: { type: "string" },
+        notes: { type: "string" },
+        taxDeductible: { type: "boolean" },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "deleteExpense",
+    description: "Delete an expense.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "string" } },
+      required: ["id"],
+    },
+  },
+  {
+    name: "updateTask",
+    description: "Edit a task. Setting status='done' stamps completedAt automatically. Use this to complete, snooze, reassign, or change priority.",
+    input_schema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        title: { type: "string" },
+        detail: { type: "string" },
+        status: { type: "string", enum: ["open", "doing", "done", "blocked"] },
+        priority: { type: "string", enum: ["low", "normal", "high", "now"] },
+        waitingOn: { type: "string" },
+        dueDate: { type: "string" },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "deleteTask",
+    description: "Delete a task.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "string" } },
+      required: ["id"],
+    },
+  },
+  {
+    name: "updateContentPost",
+    description: "Edit a content calendar post — change caption, hook, platform, scheduled time, or approval status.",
+    input_schema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        platform: { type: "string" },
+        caption: { type: "string" },
+        hook: { type: "string" },
+        status: { type: "string", enum: ["draft", "approved", "scheduled", "posted"] },
+        scheduledFor: { type: "string" },
+        approvedBy: { type: "string" },
+        postedUrl: { type: "string" },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "deleteContentPost",
+    description: "Delete a content calendar post.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "string" } },
+      required: ["id"],
+    },
+  },
 ];
 
 export type ToolName = (typeof AXIS_TOOLS)[number]["name"];
@@ -429,6 +619,134 @@ async function runToolImpl(name: string, input: unknown): Promise<unknown> {
       const i = input as { path?: string };
       const entries = await listWiki(i.path ?? "");
       return { path: i.path ?? "", entries };
+    }
+
+    // ---- Update / delete ----
+    case "updateClient": {
+      const i = input as { id: string; [k: string]: unknown };
+      const data: Record<string, unknown> = {};
+      if (i.name != null) data.name = i.name;
+      if (i.handle != null) data.handle = i.handle;
+      if (i.website != null) data.website = i.website;
+      if (i.industry != null) data.industry = i.industry;
+      if (i.stage != null) data.stage = i.stage;
+      if (i.brandNotes != null) data.brandNotes = i.brandNotes;
+      if (i.nextAction != null) data.nextAction = i.nextAction;
+      if (i.retainerDollars != null) data.retainerCents = dollarsToCents(i.retainerDollars as number);
+      return { client: await db.client.update({ where: { id: i.id }, data }) };
+    }
+    case "deleteClient": {
+      const i = input as { id: string };
+      await db.client.delete({ where: { id: i.id } });
+      return { ok: true, deleted: i.id };
+    }
+    case "updateProject": {
+      const i = input as { id: string; [k: string]: unknown };
+      const data: Record<string, unknown> = {};
+      if (i.name != null) data.name = i.name;
+      if (i.status != null) data.status = i.status;
+      if (i.brief != null) data.brief = i.brief;
+      if (i.deliverables != null)
+        data.deliverables = Array.isArray(i.deliverables) ? JSON.stringify(i.deliverables) : i.deliverables;
+      if (i.budgetDollars != null) data.budgetCents = dollarsToCents(i.budgetDollars as number);
+      if (i.startDate != null) data.startDate = i.startDate ? new Date(i.startDate as string) : null;
+      if (i.dueDate != null) data.dueDate = i.dueDate ? new Date(i.dueDate as string) : null;
+      if (i.risks != null) data.risks = i.risks;
+      if (i.nextAction != null) data.nextAction = i.nextAction;
+      return { project: await db.project.update({ where: { id: i.id }, data }) };
+    }
+    case "deleteProject": {
+      const i = input as { id: string };
+      await db.project.delete({ where: { id: i.id } });
+      return { ok: true, deleted: i.id };
+    }
+    case "updateCampaign": {
+      const i = input as { id: string; [k: string]: unknown };
+      const data: Record<string, unknown> = {};
+      if (i.name != null) data.name = i.name;
+      if (i.concept != null) data.concept = i.concept;
+      if (i.heroDirection != null) data.heroDirection = i.heroDirection;
+      if (i.hooks != null) data.hooks = Array.isArray(i.hooks) ? (i.hooks as string[]).join("\n") : i.hooks;
+      if (i.goals != null) data.goals = i.goals;
+      if (i.status != null) data.status = i.status;
+      if (i.startDate != null) data.startDate = i.startDate ? new Date(i.startDate as string) : null;
+      if (i.endDate != null) data.endDate = i.endDate ? new Date(i.endDate as string) : null;
+      return { campaign: await db.campaign.update({ where: { id: i.id }, data }) };
+    }
+    case "deleteCampaign": {
+      const i = input as { id: string };
+      await db.campaign.delete({ where: { id: i.id } });
+      return { ok: true, deleted: i.id };
+    }
+    case "updateInvoice": {
+      const i = input as { id: string; [k: string]: unknown };
+      const data: Record<string, unknown> = {};
+      if (i.status != null) {
+        data.status = i.status;
+        if (i.status === "paid") data.paidAt = new Date();
+      }
+      if (i.amountDollars != null) data.amountCents = dollarsToCents(i.amountDollars as number);
+      if (i.dueDate != null) data.dueDate = i.dueDate ? new Date(i.dueDate as string) : null;
+      if (i.notes != null) data.notes = i.notes;
+      return { invoice: await db.invoice.update({ where: { id: i.id }, data }) };
+    }
+    case "deleteInvoice": {
+      const i = input as { id: string };
+      await db.invoice.delete({ where: { id: i.id } });
+      return { ok: true, deleted: i.id };
+    }
+    case "updateExpense": {
+      const i = input as { id: string; [k: string]: unknown };
+      const data: Record<string, unknown> = {};
+      if (i.vendor != null) data.vendor = i.vendor;
+      if (i.category != null) data.category = i.category;
+      if (i.amountDollars != null) data.amountCents = dollarsToCents(i.amountDollars as number);
+      if (i.occurredAt != null) data.occurredAt = i.occurredAt ? new Date(i.occurredAt as string) : null;
+      if (i.notes != null) data.notes = i.notes;
+      if (i.taxDeductible != null) data.taxDeductible = i.taxDeductible;
+      return { expense: await db.expense.update({ where: { id: i.id }, data }) };
+    }
+    case "deleteExpense": {
+      const i = input as { id: string };
+      await db.expense.delete({ where: { id: i.id } });
+      return { ok: true, deleted: i.id };
+    }
+    case "updateTask": {
+      const i = input as { id: string; [k: string]: unknown };
+      const data: Record<string, unknown> = {};
+      if (i.title != null) data.title = i.title;
+      if (i.detail != null) data.detail = i.detail;
+      if (i.status != null) {
+        data.status = i.status;
+        data.completedAt = i.status === "done" ? new Date() : null;
+      }
+      if (i.priority != null) data.priority = i.priority;
+      if (i.waitingOn != null) data.waitingOn = (i.waitingOn as string) || null;
+      if (i.dueDate != null) data.dueDate = i.dueDate ? new Date(i.dueDate as string) : null;
+      return { task: await db.task.update({ where: { id: i.id }, data }) };
+    }
+    case "deleteTask": {
+      const i = input as { id: string };
+      await db.task.delete({ where: { id: i.id } });
+      return { ok: true, deleted: i.id };
+    }
+    case "updateContentPost": {
+      const i = input as { id: string; [k: string]: unknown };
+      const data: Record<string, unknown> = {};
+      if (i.platform != null) data.platform = i.platform;
+      if (i.caption != null) data.caption = i.caption;
+      if (i.hook != null) data.hook = i.hook;
+      if (i.status != null) data.status = i.status;
+      if (i.scheduledFor != null)
+        data.scheduledFor = i.scheduledFor ? new Date(i.scheduledFor as string) : null;
+      if (i.approvedBy != null) data.approvedBy = i.approvedBy;
+      if (i.postedUrl != null) data.postedUrl = i.postedUrl;
+      return { post: await db.contentCalendarPost.update({ where: { id: i.id }, data }) };
+    }
+    case "deleteContentPost": {
+      const i = input as { id: string };
+      await db.contentCalendarPost.delete({ where: { id: i.id } });
+      return { ok: true, deleted: i.id };
     }
 
     default:

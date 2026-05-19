@@ -321,4 +321,175 @@ export const TOOLS: ToolDef[] = [
     },
     run: (axis, args) => axis.cinematicEngine.clientDashboard(args.clientId),
   },
+
+  // ---------- Update / delete ----------
+  {
+    name: "axis_clients_update",
+    description: "Edit fields on an existing client (stage, brand notes, next action, retainer, etc.).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        name: { type: "string" },
+        stage: { type: "string" },
+        brandNotes: { type: "string" },
+        nextAction: { type: "string" },
+        retainerDollars: { type: "number" },
+      },
+      required: ["id"],
+    },
+    run: (axis, args) => axis.clients.update(args.id, args),
+  },
+  {
+    name: "axis_clients_delete",
+    description: "Permanently delete a client and cascade-linked rows. Confirm before calling.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string" } },
+      required: ["id"],
+    },
+    run: (axis, args) => axis.clients.remove(args.id),
+  },
+  {
+    name: "axis_projects_update",
+    description: "Edit a project's status, brief, dates, deliverables, risks, or next action.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        status: { type: "string" },
+        brief: { type: "string" },
+        deliverables: { type: "array", items: { type: "string" } },
+        dueDate: { type: "string" },
+        nextAction: { type: "string" },
+      },
+      required: ["id"],
+    },
+    run: (axis, args) => axis.projects.update(args.id, args),
+  },
+  {
+    name: "axis_projects_delete",
+    description: "Delete a project. Confirm before calling.",
+    inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+    run: (axis, args) => axis.projects.remove(args.id),
+  },
+  {
+    name: "axis_campaigns_update",
+    description: "Edit a campaign — concept, hero direction, hooks, goals, status.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        concept: { type: "string" },
+        heroDirection: { type: "string" },
+        hooks: { type: "array", items: { type: "string" } },
+        goals: { type: "string" },
+        status: { type: "string" },
+      },
+      required: ["id"],
+    },
+    run: (axis, args) => axis.campaigns.update(args.id, args),
+  },
+  {
+    name: "axis_campaigns_delete",
+    description: "Delete a campaign.",
+    inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+    run: (axis, args) => axis.campaigns.remove(args.id),
+  },
+  {
+    name: "axis_invoices_update",
+    description: "Edit an invoice. Setting status='paid' stamps paidAt automatically.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        status: { type: "string", enum: ["draft", "sent", "paid", "overdue", "void"] },
+        amountDollars: { type: "number" },
+        dueDate: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["id"],
+    },
+    run: (axis, args) => axis.invoices.update(args.id, args),
+  },
+  {
+    name: "axis_invoices_mark_paid",
+    description: "Shortcut: mark an invoice paid (status=paid + paidAt=now).",
+    inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+    run: (axis, args) => axis.invoices.markPaid(args.id),
+  },
+  {
+    name: "axis_invoices_mark_sent",
+    description: "Shortcut: mark an invoice as sent.",
+    inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+    run: (axis, args) => axis.invoices.markSent(args.id),
+  },
+  {
+    name: "axis_invoices_void",
+    description: "Void an invoice (status=void).",
+    inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+    run: (axis, args) => axis.invoices.void(args.id),
+  },
+  {
+    name: "axis_invoices_delete",
+    description: "Delete an invoice. Prefer voiding over deleting unless it was a true mistake.",
+    inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+    run: (axis, args) => axis.invoices.remove(args.id),
+  },
+  {
+    name: "axis_expenses_update",
+    description: "Edit a logged expense.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        vendor: { type: "string" },
+        category: { type: "string" },
+        amountDollars: { type: "number" },
+        notes: { type: "string" },
+        taxDeductible: { type: "boolean" },
+      },
+      required: ["id"],
+    },
+    run: (axis, args) => axis.expenses.update(args.id, args),
+  },
+  {
+    name: "axis_expenses_delete",
+    description: "Delete an expense.",
+    inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+    run: (axis, args) => axis.expenses.remove(args.id),
+  },
+  {
+    name: "axis_tasks_complete",
+    description: "Shortcut: mark a task done (sets completedAt).",
+    inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+    run: (axis, args) => axis.tasks.complete(args.id),
+  },
+  {
+    name: "axis_tasks_delete",
+    description: "Delete a task.",
+    inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+    run: (axis, args) => axis.tasks.remove(args.id),
+  },
+
+  // ---------- Bulk import ----------
+  {
+    name: "axis_import_bulk",
+    description:
+      "Bulk import any subset of clients/projects/campaigns/invoices/expenses/tasks/contentPosts/memoryNotes in one request. Returns per-table reports of rowsWritten + errors.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        clients: { type: "array" },
+        projects: { type: "array" },
+        campaigns: { type: "array" },
+        invoices: { type: "array" },
+        expenses: { type: "array" },
+        tasks: { type: "array" },
+        contentPosts: { type: "array" },
+        memoryNotes: { type: "array" },
+      },
+    },
+    run: (axis, args) => axis.importBulk(args),
+  },
 ];
