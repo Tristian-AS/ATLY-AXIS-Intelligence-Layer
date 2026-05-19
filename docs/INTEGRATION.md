@@ -1,4 +1,9 @@
-# Wiring ATLYSTUDIOS.AI → Axis
+# Wiring ATLYSTUDIOS.AI → Axis (Next.js variant)
+
+> **Note:** atlystudios.ai is actually built on **Lovable** (React/Vite +
+> Supabase). For that setup, use [`docs/LOVABLE_SUPABASE.md`](./LOVABLE_SUPABASE.md)
+> — it replaces the Next.js BFF below with a Supabase Edge Function. This
+> file remains as a reference for any future Next.js consumer of Axis.
 
 The mental model:
 

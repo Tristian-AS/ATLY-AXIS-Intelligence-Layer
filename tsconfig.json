@@ -19,5 +19,15 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "client", "client/**/*", "mcp", "mcp/**/*"]
+  "exclude": [
+    "node_modules",
+    "client",
+    "client/**/*",
+    "mcp",
+    "mcp/**/*",
+    "supabase",
+    "supabase/**/*",
+    "docs/lovable-snippets",
+    "docs/lovable-snippets/**/*"
+  ]
 }

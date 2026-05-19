@@ -107,9 +107,25 @@ See [`docs/DEPLOY.md`](./docs/DEPLOY.md) for the full Vercel + Neon walkthrough.
 
 ### Integrating with atlystudios.ai
 
-See [`docs/INTEGRATION.md`](./docs/INTEGRATION.md). The short version: install
-`@atly/axis-client` on the atlystudios.ai server, hold `AXIS_API_TOKEN` server-only,
-proxy chat as SSE to the browser. The browser never holds a token.
+atlystudios.ai is built on **Lovable** (React/Vite + Supabase). The Lovable
+walkthrough is in [`docs/LOVABLE_SUPABASE.md`](./docs/LOVABLE_SUPABASE.md):
+
+1. Deploy `supabase/functions/axis/` as a Supabase Edge Function.
+2. Set `AXIS_URL` + `AXIS_API_TOKEN` as Supabase secrets.
+3. Copy `docs/lovable-snippets/use-axis.ts` → `src/lib/axis.ts`.
+4. Copy `docs/lovable-snippets/AxisChat.tsx` → `src/components/AxisChat.tsx`.
+
+The Axis token never lands in the Lovable browser bundle — Edge Function
+holds it, frontend talks to the Edge Function via its public anon key.
+
+For Next.js consumers, [`docs/INTEGRATION.md`](./docs/INTEGRATION.md) covers
+the BFF + `@atly/axis-client` SDK approach.
+
+### Claude Code plugin
+
+Install [`mcp/`](./mcp) as an MCP server in any Claude Code workspace to get
+~24 Axis tools (status, chat, clients, projects, campaigns, content, finance,
+memory). See [`mcp/README.md`](./mcp/README.md).
 
 ## How Axis thinks
 
