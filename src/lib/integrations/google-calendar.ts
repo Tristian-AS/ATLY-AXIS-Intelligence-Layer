@@ -1,6 +1,9 @@
-import { google } from "googleapis";
+import { GoogleAuth } from "google-auth-library";
 
-function googleAuth(scopes: string[]) {
+const SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
+const CAL_API = "https://www.googleapis.com/calendar/v3";
+
+async function bearerToken(): Promise<string> {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
   if (!raw) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON not configured.");
   let creds: Record<string, unknown>;
@@ -10,7 +13,11 @@ function googleAuth(scopes: string[]) {
     throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON.");
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return new google.auth.GoogleAuth({ credentials: creds as any, scopes });
+  const auth = new GoogleAuth({ credentials: creds as any, scopes: [SCOPE] });
+  const client = await auth.getClient();
+  const token = await client.getAccessToken();
+  if (!token.token) throw new Error("Failed to obtain Calendar access token.");
+  return token.token;
 }
 
 export interface CalendarEvent {
@@ -26,41 +33,49 @@ export interface CalendarEvent {
 }
 
 export interface ListEventsOptions {
-  calendarId?: string; // default: GOOGLE_CALENDAR_ID env, else "primary" (won't work for service account)
+  calendarId?: string;
   timeMin?: string;
   timeMax?: string;
   maxResults?: number;
   q?: string;
 }
 
-/**
- * Lists upcoming calendar events from a calendar shared with the
- * service account. Requires the calendar's *settings → share with specific
- * people* to include the service-account email
- * (e.g. atly-studios-sandbox@integration-474408.iam.gserviceaccount.com)
- * with at least "See all event details" access.
- */
+interface RawEvent {
+  id?: string;
+  summary?: string;
+  description?: string;
+  location?: string;
+  start?: { dateTime?: string; date?: string };
+  end?: { dateTime?: string; date?: string };
+  attendees?: Array<{ email?: string }>;
+  htmlLink?: string;
+}
+
 export async function listCalendarEvents(opts: ListEventsOptions = {}): Promise<CalendarEvent[]> {
   const calendarId = opts.calendarId ?? process.env.GOOGLE_CALENDAR_ID;
   if (!calendarId) {
-    throw new Error(
-      "No calendar specified. Pass calendarId, or set GOOGLE_CALENDAR_ID in Vercel env."
-    );
+    throw new Error("No calendar specified. Pass calendarId or set GOOGLE_CALENDAR_ID in Vercel env.");
   }
-  const auth = googleAuth(["https://www.googleapis.com/auth/calendar.readonly"]);
-  const calendar = google.calendar({ version: "v3", auth });
+  const token = await bearerToken();
 
-  const res = await calendar.events.list({
-    calendarId,
-    timeMin: opts.timeMin ?? new Date().toISOString(),
-    timeMax: opts.timeMax,
-    maxResults: Math.min(opts.maxResults ?? 25, 250),
-    singleEvents: true,
-    orderBy: "startTime",
-    q: opts.q,
-  });
+  const params = new URLSearchParams();
+  params.set("timeMin", opts.timeMin ?? new Date().toISOString());
+  if (opts.timeMax) params.set("timeMax", opts.timeMax);
+  params.set("maxResults", String(Math.min(opts.maxResults ?? 25, 250)));
+  params.set("singleEvents", "true");
+  params.set("orderBy", "startTime");
+  if (opts.q) params.set("q", opts.q);
 
-  return (res.data.items ?? []).map((e) => {
+  const res = await fetch(
+    `${CAL_API}/calendars/${encodeURIComponent(calendarId)}/events?${params.toString()}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!res.ok) {
+    throw new Error(`Calendar events.list → ${res.status}: ${await res.text()}`);
+  }
+  const data = (await res.json()) as { items?: RawEvent[] };
+
+  return (data.items ?? []).map((e) => {
     const startDt = e.start?.dateTime ?? e.start?.date ?? "";
     const endDt = e.end?.dateTime ?? e.end?.date ?? "";
     return {

@@ -1,51 +1,54 @@
-import { google } from "googleapis";
+import { GoogleAuth } from "google-auth-library";
 import { db } from "@/lib/prisma";
 
-/**
- * Returns a Google Auth client backed by GOOGLE_SERVICE_ACCOUNT_JSON.
- * Expects the env var to be the full service-account JSON blob.
- */
-function googleAuth(scopes: string[]) {
+const SCOPE = "https://www.googleapis.com/auth/analytics.readonly";
+const GA4_API = "https://analyticsdata.googleapis.com/v1beta";
+
+async function bearerToken(): Promise<string> {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-  if (!raw) {
-    throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON not configured in Vercel env.");
-  }
+  if (!raw) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON not configured in Vercel env.");
   let creds: Record<string, unknown>;
   try {
     creds = JSON.parse(raw);
-  } catch (err) {
-    throw new Error(
-      "GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON. Paste the entire service-account .json file contents."
-    );
+  } catch {
+    throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON.");
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return new google.auth.GoogleAuth({ credentials: creds as any, scopes });
+  const auth = new GoogleAuth({ credentials: creds as any, scopes: [SCOPE] });
+  const client = await auth.getClient();
+  const token = await client.getAccessToken();
+  if (!token.token) throw new Error("Failed to obtain GA4 access token.");
+  return token.token;
 }
 
 export interface GA4SnapshotOptions {
-  propertyId?: string; // numeric ID, e.g. "123456789"
-  startDate?: string; // YYYY-MM-DD or "7daysAgo"
-  endDate?: string; // YYYY-MM-DD or "today"
+  propertyId?: string;
+  startDate?: string;
+  endDate?: string;
   persist?: boolean;
 }
 
-/**
- * Pulls a default GA4 snapshot: sessions, totalUsers, screenPageViews,
- * conversions, totalRevenue — by date — for a property.
- *
- * Persists to AnalyticsSnapshot when persist=true.
- */
+interface RunReportResponse {
+  rows?: Array<{
+    dimensionValues?: Array<{ value?: string }>;
+    metricValues?: Array<{ value?: string }>;
+  }>;
+}
+
 export async function ga4Snapshot(opts: GA4SnapshotOptions = {}) {
   const propertyId = opts.propertyId ?? process.env.GA4_PROPERTY_ID;
   if (!propertyId) {
     throw new Error("GA4_PROPERTY_ID not configured. Pass propertyId or set the env var.");
   }
-  const auth = googleAuth(["https://www.googleapis.com/auth/analytics.readonly"]);
-  const analyticsdata = google.analyticsdata({ version: "v1beta", auth });
+  const token = await bearerToken();
 
-  const res = await analyticsdata.properties.runReport({
-    property: `properties/${propertyId}`,
-    requestBody: {
+  const res = await fetch(`${GA4_API}/properties/${propertyId}:runReport`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
       dateRanges: [{ startDate: opts.startDate ?? "28daysAgo", endDate: opts.endDate ?? "today" }],
       dimensions: [{ name: "date" }],
       metrics: [
@@ -55,10 +58,14 @@ export async function ga4Snapshot(opts: GA4SnapshotOptions = {}) {
         { name: "conversions" },
         { name: "totalRevenue" },
       ],
-    },
+    }),
   });
+  if (!res.ok) {
+    throw new Error(`GA4 runReport → ${res.status}: ${await res.text()}`);
+  }
+  const data = (await res.json()) as RunReportResponse;
 
-  const rows = (res.data.rows ?? []).map((r) => {
+  const rows = (data.rows ?? []).map((r) => {
     const v = r.metricValues ?? [];
     return {
       date: r.dimensionValues?.[0]?.value ?? "",
