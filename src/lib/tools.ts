@@ -575,6 +575,73 @@ export const AXIS_TOOLS: Tool[] = [
       required: ["id"],
     },
   },
+  {
+    name: "createCalendarEvent",
+    description: "Create a Google Calendar event using Tristian's OAuth token (the same account he Connected at /integrations). Requires calendar.events scope, which is included in the default Connect Gmail consent. ALWAYS surface the returned htmlLink to Tristian so he can verify the event landed.",
+    input_schema: {
+      type: "object",
+      properties: {
+        summary: { type: "string", description: "Event title." },
+        description: { type: "string" },
+        location: { type: "string" },
+        start: { type: "string", description: "RFC3339 timestamp, e.g. 2026-05-19T16:00:00-07:00. For all-day pass YYYY-MM-DD." },
+        end: { type: "string", description: "RFC3339 timestamp. Defaults to start + 1h." },
+        timeZone: { type: "string", description: "IANA tz like America/Los_Angeles. Optional." },
+        attendees: { type: "array", items: { type: "string" }, description: "Email addresses." },
+        allDay: { type: "boolean" },
+        calendarId: { type: "string", description: "Defaults to GOOGLE_CALENDAR_ID env or 'primary'." },
+        sendUpdates: { type: "string", enum: ["all", "externalOnly", "none"], description: "Whether to email attendees." },
+      },
+      required: ["summary", "start"],
+    },
+  },
+  {
+    name: "updateCalendarEvent",
+    description: "Edit a calendar event by id. Only the fields you pass get changed.",
+    input_schema: {
+      type: "object",
+      properties: {
+        eventId: { type: "string" },
+        summary: { type: "string" },
+        description: { type: "string" },
+        location: { type: "string" },
+        start: { type: "string" },
+        end: { type: "string" },
+        timeZone: { type: "string" },
+        attendees: { type: "array", items: { type: "string" } },
+        calendarId: { type: "string" },
+        sendUpdates: { type: "string", enum: ["all", "externalOnly", "none"] },
+      },
+      required: ["eventId"],
+    },
+  },
+  {
+    name: "deleteCalendarEvent",
+    description: "Delete a calendar event by id. Confirm with Tristian first if attendees were invited.",
+    input_schema: {
+      type: "object",
+      properties: {
+        eventId: { type: "string" },
+        calendarId: { type: "string" },
+        sendUpdates: { type: "string", enum: ["all", "externalOnly", "none"] },
+      },
+      required: ["eventId"],
+    },
+  },
+  {
+    name: "calendarUpcomingOAuth",
+    description: "List upcoming events from Tristian's OAuth-connected calendar (alternative to the service-account-based calendarUpcoming). Use this when calendarUpcoming returns nothing because the calendar isn't shared with the service account.",
+    input_schema: {
+      type: "object",
+      properties: {
+        calendarId: { type: "string" },
+        timeMin: { type: "string" },
+        timeMax: { type: "string" },
+        maxResults: { type: "number" },
+        q: { type: "string" },
+      },
+    },
+  },
 ];
 
 export type ToolName = (typeof AXIS_TOOLS)[number]["name"];
@@ -928,6 +995,63 @@ async function runToolImpl(name: string, input: unknown): Promise<unknown> {
       const { gmailGetMessage } = await import("@/lib/integrations/gmail");
       const message = await gmailGetMessage(input as Parameters<typeof gmailGetMessage>[0]);
       return { message };
+    }
+
+    case "createCalendarEvent": {
+      const { createCalendarEventOAuth } = await import("@/lib/integrations/google-calendar-oauth");
+      const i = input as Record<string, unknown>;
+      const event = await createCalendarEventOAuth({
+        event: {
+          summary: i.summary as string,
+          description: i.description as string | undefined,
+          location: i.location as string | undefined,
+          start: i.start as string,
+          end: i.end as string | undefined,
+          timeZone: i.timeZone as string | undefined,
+          attendees: i.attendees as string[] | undefined,
+          allDay: i.allDay as boolean | undefined,
+        },
+        calendarId: i.calendarId as string | undefined,
+        userEmail: i.userEmail as string | undefined,
+        sendUpdates: i.sendUpdates as "all" | "externalOnly" | "none" | undefined,
+      });
+      return { event };
+    }
+    case "updateCalendarEvent": {
+      const { updateCalendarEventOAuth } = await import("@/lib/integrations/google-calendar-oauth");
+      const i = input as Record<string, unknown>;
+      const event = await updateCalendarEventOAuth({
+        eventId: i.eventId as string,
+        calendarId: i.calendarId as string | undefined,
+        userEmail: i.userEmail as string | undefined,
+        patch: {
+          summary: i.summary as string | undefined,
+          description: i.description as string | undefined,
+          location: i.location as string | undefined,
+          start: i.start as string | undefined,
+          end: i.end as string | undefined,
+          timeZone: i.timeZone as string | undefined,
+          attendees: i.attendees as string[] | undefined,
+        },
+        sendUpdates: i.sendUpdates as "all" | "externalOnly" | "none" | undefined,
+      });
+      return { event };
+    }
+    case "deleteCalendarEvent": {
+      const { deleteCalendarEventOAuth } = await import("@/lib/integrations/google-calendar-oauth");
+      const i = input as Record<string, unknown>;
+      return await deleteCalendarEventOAuth({
+        eventId: i.eventId as string,
+        calendarId: i.calendarId as string | undefined,
+        sendUpdates: i.sendUpdates as "all" | "externalOnly" | "none" | undefined,
+      });
+    }
+    case "calendarUpcomingOAuth": {
+      const { listCalendarEventsOAuth } = await import("@/lib/integrations/google-calendar-oauth");
+      const events = await listCalendarEventsOAuth(
+        input as Parameters<typeof listCalendarEventsOAuth>[0]
+      );
+      return { events };
     }
 
     default:

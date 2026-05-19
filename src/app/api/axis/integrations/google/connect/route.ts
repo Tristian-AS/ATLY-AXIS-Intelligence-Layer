@@ -5,8 +5,10 @@ import { buildAuthUrl } from "@/lib/integrations/google-oauth";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const GMAIL_SCOPES = [
+const DEFAULT_SCOPES = [
   "https://www.googleapis.com/auth/gmail.readonly",
+  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/calendar.readonly",
 ];
 
 /**
@@ -35,7 +37,7 @@ export async function GET(req: NextRequest) {
   }
 
   const scopesParam = req.nextUrl.searchParams.get("scopes");
-  const scopes = scopesParam ? scopesParam.split(",").map((s) => s.trim()).filter(Boolean) : GMAIL_SCOPES;
+  const scopes = scopesParam ? scopesParam.split(",").map((s) => s.trim()).filter(Boolean) : DEFAULT_SCOPES;
   const loginHint = req.nextUrl.searchParams.get("loginHint") ?? undefined;
 
   const state = randomBytes(24).toString("hex");
