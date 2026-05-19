@@ -31,16 +31,24 @@ const PUBLIC_HOSTS = new Set<string>();
 export function checkAuth(req: NextRequest): { actor: AxisActor } | NextResponse {
   const expected = process.env.AXIS_API_TOKEN;
 
-  const host = req.headers.get("host") ?? "";
+  // On Vercel (and most reverse-proxy setups) the canonical client-visible host
+  // is `x-forwarded-host`; the raw `host` header may be an internal worker
+  // hostname. Prefer the forwarded value, fall back to `host`. Lowercase both
+  // sides — HTTP hostnames are case-insensitive.
+  const host = (
+    req.headers.get("x-forwarded-host") ??
+    req.headers.get("host") ??
+    ""
+  ).toLowerCase();
   const origin = req.headers.get("origin");
   let sameOrigin = false;
-  // Same-origin bypass requires an explicit Origin header matching the public URL.
-  // This is the browser case for Tristian's own Axis UI. Server-to-server callers
-  // (no Origin header) must always present a bearer token, even if their host
-  // happens to match AXIS_PUBLIC_URL.
+  // Same-origin bypass requires an explicit Origin header matching the public
+  // URL or the request's own host. Browser case for Tristian's own Axis UI.
+  // Server-to-server callers (no Origin header) must always present a bearer
+  // token, even if their host happens to match AXIS_PUBLIC_URL.
   if (origin) {
     try {
-      const o = new URL(origin).host;
+      const o = new URL(origin).host.toLowerCase();
       sameOrigin = PUBLIC_HOSTS.has(o) || o === host;
     } catch {
       sameOrigin = false;
