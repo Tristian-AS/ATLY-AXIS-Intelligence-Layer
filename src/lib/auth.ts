@@ -34,15 +34,17 @@ export function checkAuth(req: NextRequest): { actor: AxisActor } | NextResponse
   const host = req.headers.get("host") ?? "";
   const origin = req.headers.get("origin");
   let sameOrigin = false;
+  // Same-origin bypass requires an explicit Origin header matching the public URL.
+  // This is the browser case for Tristian's own Axis UI. Server-to-server callers
+  // (no Origin header) must always present a bearer token, even if their host
+  // happens to match AXIS_PUBLIC_URL.
   if (origin) {
     try {
-      sameOrigin = PUBLIC_HOSTS.has(new URL(origin).host) || new URL(origin).host === host;
+      const o = new URL(origin).host;
+      sameOrigin = PUBLIC_HOSTS.has(o) || o === host;
     } catch {
       sameOrigin = false;
     }
-  } else {
-    // No Origin header = non-browser same-host call (e.g. server-side rendering).
-    sameOrigin = PUBLIC_HOSTS.has(host) || PUBLIC_HOSTS.size === 0;
   }
   if (sameOrigin) return { actor: "tristian" };
 
