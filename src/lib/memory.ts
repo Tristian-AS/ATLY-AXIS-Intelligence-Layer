@@ -21,14 +21,22 @@ export async function readWiki(relPath: string): Promise<string> {
 
 export async function writeWiki(relPath: string, body: string): Promise<string> {
   const full = safeJoin(WIKI_ROOT, relPath);
-  await fs.mkdir(path.dirname(full), { recursive: true });
-  await fs.writeFile(full, body, "utf8");
-  return path.relative(ROOT, full);
+  const rel = path.relative(ROOT, full);
+  try {
+    await fs.mkdir(path.dirname(full), { recursive: true });
+    await fs.writeFile(full, body, "utf8");
+  } catch (err) {
+    // Vercel and other serverless runtimes have read-only filesystems
+    // outside /tmp. Treat wiki writes as best-effort so the caller's
+    // primary work (DB writes, computed payload) still succeeds.
+    console.warn(`[writeWiki] skipped ${rel}: ${(err as Error).message}`);
+  }
+  return rel;
 }
 
 export async function appendWiki(relPath: string, body: string): Promise<string> {
   const full = safeJoin(WIKI_ROOT, relPath);
-  await fs.mkdir(path.dirname(full), { recursive: true });
+  const rel = path.relative(ROOT, full);
   let existing = "";
   try {
     existing = await fs.readFile(full, "utf8");
@@ -36,8 +44,13 @@ export async function appendWiki(relPath: string, body: string): Promise<string>
     /* new file */
   }
   const sep = existing && !existing.endsWith("\n") ? "\n\n" : existing ? "\n" : "";
-  await fs.writeFile(full, existing + sep + body, "utf8");
-  return path.relative(ROOT, full);
+  try {
+    await fs.mkdir(path.dirname(full), { recursive: true });
+    await fs.writeFile(full, existing + sep + body, "utf8");
+  } catch (err) {
+    console.warn(`[appendWiki] skipped ${rel}: ${(err as Error).message}`);
+  }
+  return rel;
 }
 
 export async function listWiki(relPath = ""): Promise<string[]> {
