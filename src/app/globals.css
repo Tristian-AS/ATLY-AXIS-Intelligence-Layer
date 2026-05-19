@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: #07080A;
+  color: #E2E6EC;
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle film grain over the entire app, ATLY-style */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 3px 3px;
+  opacity: 0.5;
+  mix-blend-mode: overlay;
+}
+
+* {
+  border-color: #1A1F26;
+}
+
+::selection {
+  background: #C9A86A;
+  color: #07080A;
+}
+
+.atly-divider {
+  background-image: linear-gradient(to right, transparent, #1A1F26 50%, transparent);
+  height: 1px;
+}
+
+.atly-hairline {
+  border-color: rgba(232, 226, 212, 0.08);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #0B0D10;
+}
+::-webkit-scrollbar-thumb {
+  background: #1A1F26;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #252B33;
+}

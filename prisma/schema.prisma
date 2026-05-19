@@ -1,0 +1,296 @@
+// ATLY Axis — operational data layer.
+// 16 tables, per §6 of the build brief.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 1. clients
+model Client {
+  id            String    @id @default(cuid())
+  name          String
+  handle        String?   // @brand on socials
+  website       String?
+  industry      String?
+  stage         String    @default("lead") // lead | active | paused | churned
+  brandNotes    String?   // free-form brand voice / positioning notes
+  nextAction    String?
+  retainerCents Int?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  contacts   Contact[]
+  projects   Project[]
+  campaigns  Campaign[]
+  invoices   Invoice[]
+  payments   Payment[]
+  posts      ContentCalendarPost[]
+  snapshots  AnalyticsSnapshot[]
+  reports    ProfitabilityReport[]
+  notes      MemoryNote[]
+  files      FileRecord[]
+  tasks      Task[]
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name      String
+  role      String?
+  email     String?
+  phone     String?
+  notes     String?
+  createdAt DateTime @default(now())
+}
+
+// 2. projects
+model Project {
+  id            String   @id @default(cuid())
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name          String
+  status        String   @default("active") // active | paused | done | stalled
+  brief         String?
+  deliverables  String?  // JSON array stringified
+  budgetCents   Int?
+  startDate     DateTime?
+  dueDate       DateTime?
+  risks         String?
+  nextAction    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  campaigns Campaign[]
+  invoices  Invoice[]
+  posts     ContentCalendarPost[]
+  files     FileRecord[]
+  tasks     Task[]
+  reports   ProfitabilityReport[]
+}
+
+// 3. campaigns
+model Campaign {
+  id           String   @id @default(cuid())
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  projectId    String?
+  project      Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  name         String
+  concept      String?
+  hooks        String?  // newline-separated hook list
+  heroDirection String?
+  goals        String?
+  status       String   @default("draft") // draft | live | wrapped
+  startDate    DateTime?
+  endDate      DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  posts     ContentCalendarPost[]
+  snapshots AnalyticsSnapshot[]
+}
+
+// 4. content_calendar_posts
+model ContentCalendarPost {
+  id         String   @id @default(cuid())
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  projectId  String?
+  project    Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  campaignId String?
+  campaign   Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  platform   String   // instagram | tiktok | youtube | x | linkedin | email
+  caption    String
+  hook       String?
+  scheduledFor DateTime?
+  status     String   @default("draft") // draft | approved | scheduled | posted
+  approvedBy String?
+  postedUrl  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// 5. invoices
+model Invoice {
+  id           String    @id @default(cuid())
+  number       String    @unique
+  clientId     String
+  client       Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  projectId    String?
+  project      Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  amountCents  Int
+  status       String    @default("draft") // draft | sent | paid | overdue | void
+  issueDate    DateTime  @default(now())
+  dueDate      DateTime?
+  paidAt       DateTime?
+  notes        String?
+  lineItems    String?   // JSON
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  payments Payment[]
+}
+
+// 6. payments
+model Payment {
+  id          String   @id @default(cuid())
+  invoiceId   String?
+  invoice     Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  clientId    String?
+  client      Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  amountCents Int
+  method      String?  // wire | ach | card | cash | other
+  receivedAt  DateTime @default(now())
+  notes       String?
+}
+
+// 7. expenses
+model Expense {
+  id          String   @id @default(cuid())
+  vendor      String
+  category    String   // software | travel | meals | advertising | equipment | contract_labor | subscriptions | insurance | other
+  amountCents Int
+  occurredAt  DateTime @default(now())
+  notes       String?
+  receiptUrl  String?
+  taxDeductible Boolean @default(true)
+  createdAt   DateTime @default(now())
+}
+
+// 8. subscriptions
+model Subscription {
+  id            String   @id @default(cuid())
+  name          String
+  vendor        String?
+  cycle         String   @default("monthly") // monthly | annual | quarterly
+  amountCents   Int
+  renewsOn      DateTime?
+  category      String   @default("software")
+  active        Boolean  @default(true)
+  notes         String?
+  createdAt     DateTime @default(now())
+}
+
+// 9. contractors
+model Contractor {
+  id        String   @id @default(cuid())
+  name      String
+  role      String?  // editor | dp | producer | gaffer | etc
+  email     String?
+  rateCents Int?     // day rate or hourly
+  rateUnit  String?  // day | hour | project
+  notes     String?
+  createdAt DateTime @default(now())
+}
+
+// 10. analytics_snapshots
+model AnalyticsSnapshot {
+  id          String   @id @default(cuid())
+  clientId    String?
+  client      Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  campaignId  String?
+  campaign    Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  platform    String
+  metrics     String   // JSON blob — views, reach, engagement, revenue, etc.
+  capturedAt  DateTime @default(now())
+  source      String?  // manual | api | screenshot
+}
+
+// 11. profitability_reports
+model ProfitabilityReport {
+  id              String   @id @default(cuid())
+  clientId        String?
+  client          Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  projectId       String?
+  project         Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  periodStart     DateTime
+  periodEnd       DateTime
+  revenueCents    Int
+  costCents       Int
+  marginCents     Int
+  marginPct       Float
+  summary         String?
+  createdAt       DateTime @default(now())
+}
+
+// 12. estimated_taxes
+model EstimatedTax {
+  id              String   @id @default(cuid())
+  periodLabel     String   // "Q2 2026"
+  periodStart     DateTime
+  periodEnd       DateTime
+  grossRevenueCents Int
+  deductibleCents Int
+  taxableCents    Int
+  estimateCents   Int
+  setAsidePct     Float    @default(0.30)
+  notes           String?
+  createdAt       DateTime @default(now())
+}
+
+// 13. memory_notes
+model MemoryNote {
+  id        String   @id @default(cuid())
+  scope     String   @default("general") // client | project | campaign | finance | lesson | brand | general
+  clientId  String?
+  client    Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  title     String
+  body      String
+  source    String?  // chat | file | manual
+  wikiPath  String?  // file path in wiki/
+  tags      String?  // comma-separated
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 14. files
+model FileRecord {
+  id        String   @id @default(cuid())
+  clientId  String?
+  client    Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  path      String   // raw/... path
+  kind      String   // screenshot | invoice | contract | analytics | receipt | reference | proposal | note
+  label     String?
+  bytes     Int?
+  createdAt DateTime @default(now())
+}
+
+// 15. tasks
+model Task {
+  id         String   @id @default(cuid())
+  clientId   String?
+  client     Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  projectId  String?
+  project    Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  title      String
+  detail     String?
+  status     String   @default("open") // open | doing | done | blocked
+  priority   String   @default("normal") // low | normal | high | now
+  waitingOn  String?  // person/entity if blocked externally
+  dueDate    DateTime?
+  completedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// 16. chat_messages
+model ChatMessage {
+  id          String   @id @default(cuid())
+  threadId    String   @default("main")
+  role        String   // user | assistant | tool
+  content     String
+  toolName    String?
+  toolInput   String?  // JSON
+  toolOutput  String?  // JSON
+  createdAt   DateTime @default(now())
+
+  @@index([threadId, createdAt])
+}
