@@ -1,4 +1,4 @@
-import type { SseEvent } from "./types";
+import type { SseEvent } from "./types.js";
 
 /**
  * Parses a Response body as an SSE stream and yields events.

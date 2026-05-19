@@ -11,10 +11,10 @@ import type {
   SseEvent,
   StatusSummary,
   TaxEstimate,
-} from "./types";
-import { readSse } from "./streaming";
+} from "./types.js";
+import { readSse } from "./streaming.js";
 
-export * from "./types";
+export * from "./types.js";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 

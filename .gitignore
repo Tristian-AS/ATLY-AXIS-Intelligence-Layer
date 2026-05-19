@@ -41,3 +41,5 @@ yarn-error.log*
 !/raw/**/README.md
 /client/dist/
 /client/node_modules/
+/mcp/dist/
+/mcp/node_modules/

@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "axis": {
+      "command": "node",
+      "args": ["./node_modules/@atly/axis-mcp/dist/index.js"],
+      "env": {
+        "AXIS_URL": "https://axis.atlystudios.ai",
+        "AXIS_API_TOKEN": "${AXIS_API_TOKEN}"
+      }
+    }
+  }
+}

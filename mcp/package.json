@@ -1,0 +1,26 @@
+{
+  "name": "@atly/axis-mcp",
+  "version": "0.1.0",
+  "description": "Claude Code plugin (MCP server) that exposes ATLY Axis as tools.",
+  "type": "module",
+  "bin": {
+    "atly-axis-mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "files": ["dist", "src", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && chmod +x dist/index.js",
+    "prepare": "npm run build",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@atly/axis-client": "file:../client",
+    "@modelcontextprotocol/sdk": "^1.0.4"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}
