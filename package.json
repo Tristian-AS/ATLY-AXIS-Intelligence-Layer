@@ -5,8 +5,8 @@
   "description": "ATLY Axis — the internal operating system for ATLY Studios.",
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && prisma migrate deploy && next build",
-    "build:no-migrate": "prisma generate && next build",
+    "build": "node scripts/build.mjs",
+    "build:no-migrate": "node scripts/build.mjs --no-migrate",
     "start": "next start",
     "lint": "next lint",
     "db:generate": "prisma generate",
