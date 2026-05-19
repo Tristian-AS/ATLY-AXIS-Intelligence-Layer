@@ -9,6 +9,7 @@ const NAV = [
   { href: "/content-calendar", label: "Content" },
   { href: "/finance", label: "Finance" },
   { href: "/memory", label: "Memory" },
+  { href: "/integrations", label: "Integrations" },
 ];
 
 export function Sidebar() {

@@ -538,6 +538,43 @@ export const AXIS_TOOLS: Tool[] = [
       required: ["invoiceId"],
     },
   },
+  {
+    name: "gmailRecent",
+    description: "List recent messages from Tristian's connected Gmail inbox. Default: last 20 messages from INBOX. Requires the account to be connected at /integrations.",
+    input_schema: {
+      type: "object",
+      properties: {
+        userEmail: { type: "string", description: "Default: tristian@atlystudios.com." },
+        q: { type: "string", description: "Gmail search syntax. e.g. 'from:client@example.com newer_than:7d'." },
+        maxResults: { type: "number" },
+      },
+    },
+  },
+  {
+    name: "gmailSearch",
+    description: "Search Tristian's Gmail using Gmail query syntax (from:, to:, subject:, before:, after:, has:attachment, etc.).",
+    input_schema: {
+      type: "object",
+      properties: {
+        q: { type: "string" },
+        userEmail: { type: "string" },
+        maxResults: { type: "number" },
+      },
+      required: ["q"],
+    },
+  },
+  {
+    name: "gmailReadMessage",
+    description: "Fetch the full body + headers of a single Gmail message by id.",
+    input_schema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        userEmail: { type: "string" },
+      },
+      required: ["id"],
+    },
+  },
 ];
 
 export type ToolName = (typeof AXIS_TOOLS)[number]["name"];
@@ -876,6 +913,21 @@ async function runToolImpl(name: string, input: unknown): Promise<unknown> {
     case "sendInvoiceEmail": {
       const { sendInvoiceEmail } = await import("@/lib/integrations/resend");
       return await sendInvoiceEmail(input as Parameters<typeof sendInvoiceEmail>[0]);
+    }
+    case "gmailRecent": {
+      const { gmailListMessages } = await import("@/lib/integrations/gmail");
+      const messages = await gmailListMessages(input as Parameters<typeof gmailListMessages>[0]);
+      return { messages };
+    }
+    case "gmailSearch": {
+      const { gmailSearch } = await import("@/lib/integrations/gmail");
+      const messages = await gmailSearch(input as Parameters<typeof gmailSearch>[0]);
+      return { messages };
+    }
+    case "gmailReadMessage": {
+      const { gmailGetMessage } = await import("@/lib/integrations/gmail");
+      const message = await gmailGetMessage(input as Parameters<typeof gmailGetMessage>[0]);
+      return { message };
     }
 
     default:

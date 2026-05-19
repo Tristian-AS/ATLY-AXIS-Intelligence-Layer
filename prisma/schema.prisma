@@ -310,3 +310,15 @@ model AuditLog {
   @@index([actor, createdAt])
   @@index([action, createdAt])
 }
+
+// 18. google_oauth_tokens — OAuth tokens for Tristian's connected Google accounts
+model GoogleOAuthToken {
+  id           String   @id @default(cuid())
+  userEmail    String   @unique // the connected Google account
+  scopes       String   // space-separated OAuth scopes granted
+  accessToken  String   // short-lived (~1h)
+  refreshToken String   // long-lived
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
