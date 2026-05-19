@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // 1. clients
@@ -293,4 +294,19 @@ model ChatMessage {
   createdAt   DateTime @default(now())
 
   @@index([threadId, createdAt])
+}
+
+// 17. audit_logs — every mutating action, every tool call, every API hit
+model AuditLog {
+  id        String   @id @default(cuid())
+  actor     String   // "tristian" | "bff:atlystudios" | "plugin:claude-code" | "system"
+  action    String   // e.g. "tool:createClient", "api:POST /api/axis/invoices"
+  target    String?  // resource id when applicable
+  payload   String?  // JSON
+  status    String   @default("ok") // ok | error
+  message   String?
+  createdAt DateTime @default(now())
+
+  @@index([actor, createdAt])
+  @@index([action, createdAt])
 }

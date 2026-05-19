@@ -5,11 +5,13 @@
   "description": "ATLY Axis — the internal operating system for ATLY Studios.",
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && prisma db push --skip-generate && next build",
+    "build": "prisma generate && prisma migrate deploy && next build",
+    "build:no-migrate": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
-    "db:push": "prisma db push",
     "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "typecheck": "tsc --noEmit"
   },

@@ -86,15 +86,30 @@ wiki/                      # compiled, structured knowledge
 
 ## Getting it running
 
+### Local
+
 ```bash
 npm install
 cp .env.example .env
-# add your ANTHROPIC_API_KEY
+# fill in: ANTHROPIC_API_KEY, DATABASE_URL + DIRECT_URL (Neon),
+#          AXIS_API_TOKEN (openssl rand -hex 32),
+#          AXIS_PUBLIC_URL (http://localhost:3000),
+#          AXIS_ALLOWED_ORIGINS (http://localhost:3000)
 
-npm run db:push          # create the SQLite DB from schema
-npm run db:seed          # seed Rhøme + initial state
-npm run dev              # http://localhost:3000
+npx prisma migrate deploy   # apply migrations to Neon
+npm run db:seed             # seed Rhøme + initial state
+npm run dev                 # http://localhost:3000
 ```
+
+### Production
+
+See [`docs/DEPLOY.md`](./docs/DEPLOY.md) for the full Vercel + Neon walkthrough.
+
+### Integrating with atlystudios.ai
+
+See [`docs/INTEGRATION.md`](./docs/INTEGRATION.md). The short version: install
+`@atly/axis-client` on the atlystudios.ai server, hold `AXIS_API_TOKEN` server-only,
+proxy chat as SSE to the browser. The browser never holds a token.
 
 ## How Axis thinks
 
@@ -114,14 +129,17 @@ updates the corresponding wiki page so the brain stays human-readable.
 
 - **Phase 0** ✅ Memory foundation (`raw/` + `wiki/`)
 - **Phase 1** ✅ Chat-controlled DB, status page, finance views
-- **Phase 2** ◐ Cinematic Growth Engine — push campaign objects to client dashboards
-- **Phase 3** ◐ Finance intelligence — profitability deep dives, runway, write-off intel
-- **Phase 4** ◐ Operational intelligence — surface risks, stalled leads, overdue invoices automatically
+- **Phase 2** ✅ Postgres + auth + audit + SSE chat + AxisClient SDK (this version)
+- **Phase 3** ◐ Cinematic Growth Engine surfaces in atlystudios.ai
+- **Phase 4** ◐ Vector memory + Claude Code plugin bridge + background workers
 
 ## Stack
 
 - Next.js 15 (App Router) + React 19
-- TypeScript
-- Prisma + SQLite (swap to Postgres in prod)
+- TypeScript end-to-end
+- Prisma + **Postgres** (Neon recommended)
 - Tailwind (cinematic ink palette)
 - Anthropic SDK — Claude Opus 4.7 by default, Sonnet 4.6 as fast model
+- Server-sent events for streaming chat
+- Bearer-token API auth with same-origin bypass for the native UI
+- `@atly/axis-client` typed SDK under `client/`

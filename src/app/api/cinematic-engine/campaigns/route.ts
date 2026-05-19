@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/prisma";
+import { protect } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -7,7 +8,7 @@ export const dynamic = "force-dynamic";
  * Cinematic Growth Engine — client-facing campaign objects.
  * Surfaces only the parts of an Axis campaign that should be visible to a client.
  */
-export async function GET(req: NextRequest) {
+export const GET = protect(async (req: NextRequest) => {
   const clientId = req.nextUrl.searchParams.get("clientId");
   const campaigns = await db.campaign.findMany({
     where: {
@@ -31,4 +32,4 @@ export async function GET(req: NextRequest) {
       window: { start: c.startDate, end: c.endDate },
     })),
   });
-}
+});

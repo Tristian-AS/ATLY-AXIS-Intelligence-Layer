@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/prisma";
+import { protect } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Cinematic Growth Engine — single endpoint a client-facing dashboard can hit
- * to render everything ATLY is doing for them right now.
- */
-export async function GET(req: NextRequest) {
+export const GET = protect(async (req: NextRequest) => {
   const clientId = req.nextUrl.searchParams.get("clientId");
   if (!clientId) return NextResponse.json({ error: "clientId required" }, { status: 400 });
 
@@ -63,4 +60,4 @@ export async function GET(req: NextRequest) {
       })(),
     })),
   });
-}
+});

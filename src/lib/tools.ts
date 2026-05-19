@@ -1,5 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/prisma";
+import { audit } from "@/lib/audit";
+import type { AxisActor } from "@/lib/auth";
 import { listWiki, readWiki } from "@/lib/memory";
 import { createClient } from "@/lib/functions/createClient";
 import { createProject } from "@/lib/functions/createProject";
@@ -256,9 +258,31 @@ export const AXIS_TOOLS: Tool[] = [
 
 export type ToolName = (typeof AXIS_TOOLS)[number]["name"];
 
-export async function runTool(name: string, input: Record<string, unknown>): Promise<unknown> {
+export async function runTool(
+  name: string,
+  input: Record<string, unknown>,
+  actor: AxisActor = "system"
+): Promise<unknown> {
   // The model has been told to honor input_schema. We trust the shape and forward.
   const i = input as unknown;
+  try {
+    const out = await runToolImpl(name, i);
+    await audit({ actor, action: `tool:${name}`, payload: input, status: "ok" });
+    return out;
+  } catch (err) {
+    await audit({
+      actor,
+      action: `tool:${name}`,
+      payload: input,
+      status: "error",
+      message: (err as Error).message,
+    });
+    throw err;
+  }
+}
+
+async function runToolImpl(name: string, input: unknown): Promise<unknown> {
+  const i = input;
   switch (name) {
     case "createClient":
       return await createClient(i as Parameters<typeof createClient>[0]);

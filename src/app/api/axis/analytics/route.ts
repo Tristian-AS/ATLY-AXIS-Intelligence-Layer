@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/prisma";
+import { protect } from "@/lib/auth";
+import { audit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
+export const GET = protect(async (req: NextRequest) => {
   const clientId = req.nextUrl.searchParams.get("clientId");
   const snapshots = await db.analyticsSnapshot.findMany({
     where: clientId ? { clientId } : undefined,
@@ -11,9 +13,9 @@ export async function GET(req: NextRequest) {
     take: 100,
   });
   return NextResponse.json({ snapshots });
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = protect(async (req: NextRequest, { actor }) => {
   const body = await req.json();
   const snap = await db.analyticsSnapshot.create({
     data: {
@@ -24,5 +26,11 @@ export async function POST(req: NextRequest) {
       source: body.source ?? "manual",
     },
   });
+  await audit({
+    actor,
+    action: "api:POST /api/axis/analytics",
+    target: snap.id,
+    payload: body,
+  });
   return NextResponse.json({ snapshot: snap }, { status: 201 });
-}
+});

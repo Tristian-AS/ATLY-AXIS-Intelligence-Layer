@@ -30,13 +30,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 
-# prisma
+# prisma — keep migrations, ignore local sqlite leftovers
 /prisma/dev.db
 /prisma/dev.db-journal
-/prisma/migrations/dev/
 /data/
 
 # raw memory ingest (gitignored bulk; structure preserved via .gitkeep)
 /raw/**/*
 !/raw/**/.gitkeep
 !/raw/**/README.md
+/client/dist/
+/client/node_modules/

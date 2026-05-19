@@ -3,6 +3,8 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { anthropic, AXIS_MODEL, AXIS_SYSTEM_PROMPT } from "@/lib/anthropic";
 import { AXIS_TOOLS, runTool } from "@/lib/tools";
 import { db } from "@/lib/prisma";
+import { protect } from "@/lib/auth";
+import { audit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,50 +16,57 @@ interface ChatBody {
 
 const MAX_TOOL_ROUNDS = 6;
 
-export async function POST(req: NextRequest) {
-  const { message, threadId = "main" } = (await req.json()) as ChatBody;
-  if (!message?.trim()) {
-    return NextResponse.json({ error: "message required" }, { status: 400 });
-  }
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json(
-      { error: "ANTHROPIC_API_KEY not set. Add it to .env to wake Axis up." },
-      { status: 500 }
-    );
-  }
-
-  await db.chatMessage.create({
-    data: { threadId, role: "user", content: message },
-  });
-
-  const history = await db.chatMessage.findMany({
+async function loadHistory(threadId: string): Promise<Anthropic.MessageParam[]> {
+  const rows = await db.chatMessage.findMany({
     where: { threadId },
     orderBy: { createdAt: "asc" },
     take: 40,
   });
-
-  const messages: Anthropic.MessageParam[] = [];
-  for (const m of history) {
-    if (m.role === "user") {
-      messages.push({ role: "user", content: m.content });
-    } else if (m.role === "assistant") {
-      messages.push({ role: "assistant", content: m.content });
-    }
-    // tool rows are skipped — they exist only as a record; the live tool loop
-    // re-derives tool_use / tool_result blocks below.
+  const out: Anthropic.MessageParam[] = [];
+  for (const m of rows) {
+    if (m.role === "user") out.push({ role: "user", content: m.content });
+    else if (m.role === "assistant") out.push({ role: "assistant", content: m.content });
   }
+  return out;
+}
 
-  const toolActivity: Array<{ name: string; input: unknown; output: unknown; error?: string }> = [];
+interface ToolNote {
+  name: string;
+  input: unknown;
+  output: unknown;
+  error?: string;
+}
+
+/**
+ * Runs the tool-use loop using the streaming Messages API.
+ * `onDelta` is called for every text token as it arrives.
+ * `onTool` is called once per completed tool execution.
+ * Returns the final text reply and tool activity record.
+ */
+async function runChat(opts: {
+  threadId: string;
+  actor: Parameters<typeof runTool>[2];
+  onDelta?: (chunk: string) => void;
+  onTool?: (note: ToolNote) => void;
+}): Promise<{ reply: string; toolActivity: ToolNote[] }> {
+  const messages = await loadHistory(opts.threadId);
+  const toolActivity: ToolNote[] = [];
   let finalText = "";
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    const resp = await anthropic.messages.create({
+    const stream = anthropic.messages.stream({
       model: AXIS_MODEL,
       max_tokens: 4000,
       system: AXIS_SYSTEM_PROMPT,
       tools: AXIS_TOOLS,
       messages,
     });
+
+    if (opts.onDelta) {
+      stream.on("text", (chunk) => opts.onDelta?.(chunk));
+    }
+
+    const resp = await stream.finalMessage();
 
     if (resp.stop_reason === "tool_use") {
       const toolUses = resp.content.filter(
@@ -68,8 +77,14 @@ export async function POST(req: NextRequest) {
       const toolResults: Anthropic.ToolResultBlockParam[] = [];
       for (const use of toolUses) {
         try {
-          const output = await runTool(use.name, use.input as Record<string, unknown>);
-          toolActivity.push({ name: use.name, input: use.input, output });
+          const output = await runTool(
+            use.name,
+            use.input as Record<string, unknown>,
+            opts.actor
+          );
+          const note: ToolNote = { name: use.name, input: use.input, output };
+          toolActivity.push(note);
+          opts.onTool?.(note);
           toolResults.push({
             type: "tool_result",
             tool_use_id: use.id,
@@ -77,7 +92,7 @@ export async function POST(req: NextRequest) {
           });
           await db.chatMessage.create({
             data: {
-              threadId,
+              threadId: opts.threadId,
               role: "tool",
               content: `${use.name} ok`,
               toolName: use.name,
@@ -87,7 +102,14 @@ export async function POST(req: NextRequest) {
           });
         } catch (err) {
           const msg = (err as Error).message;
-          toolActivity.push({ name: use.name, input: use.input, output: null, error: msg });
+          const note: ToolNote = {
+            name: use.name,
+            input: use.input,
+            output: null,
+            error: msg,
+          };
+          toolActivity.push(note);
+          opts.onTool?.(note);
           toolResults.push({
             type: "tool_result",
             tool_use_id: use.id,
@@ -96,7 +118,7 @@ export async function POST(req: NextRequest) {
           });
           await db.chatMessage.create({
             data: {
-              threadId,
+              threadId: opts.threadId,
               role: "tool",
               content: `${use.name} error: ${msg}`,
               toolName: use.name,
@@ -123,18 +145,80 @@ export async function POST(req: NextRequest) {
     finalText = "(Axis hit the tool-loop limit. Try a more direct ask.)";
   }
 
-  await db.chatMessage.create({
-    data: { threadId, role: "assistant", content: finalText },
-  });
-
-  return NextResponse.json({
-    reply: finalText,
-    toolActivity,
-    threadId,
-  });
+  return { reply: finalText, toolActivity };
 }
 
-export async function GET(req: NextRequest) {
+export const POST = protect(async (req: NextRequest, { actor }) => {
+  const { message, threadId = "main" } = (await req.json()) as ChatBody;
+  if (!message?.trim()) {
+    return NextResponse.json({ error: "message required" }, { status: 400 });
+  }
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return NextResponse.json(
+      { error: "ANTHROPIC_API_KEY not set. Add it to .env to wake Axis up." },
+      { status: 500 }
+    );
+  }
+
+  await db.chatMessage.create({
+    data: { threadId, role: "user", content: message },
+  });
+  await audit({ actor, action: "api:POST /api/axis/chat", target: threadId });
+
+  const wantsStream = req.nextUrl.searchParams.get("stream") !== "0";
+
+  // ---------- Streaming (SSE) path ----------
+  if (wantsStream) {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        const send = (event: string, data: unknown) => {
+          controller.enqueue(
+            encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+          );
+        };
+
+        try {
+          const { reply, toolActivity } = await runChat({
+            threadId,
+            actor,
+            onDelta: (chunk) => send("delta", { chunk }),
+            onTool: (note) => send("tool", note),
+          });
+
+          await db.chatMessage.create({
+            data: { threadId, role: "assistant", content: reply },
+          });
+
+          send("done", { reply, toolActivity, threadId });
+        } catch (err) {
+          send("error", { message: (err as Error).message });
+        } finally {
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      },
+    });
+  }
+
+  // ---------- Non-streaming JSON path ----------
+  const { reply, toolActivity } = await runChat({ threadId, actor });
+  await db.chatMessage.create({
+    data: { threadId, role: "assistant", content: reply },
+  });
+
+  return NextResponse.json({ reply, toolActivity, threadId });
+});
+
+export const GET = protect(async (req: NextRequest) => {
   const threadId = req.nextUrl.searchParams.get("threadId") ?? "main";
   const messages = await db.chatMessage.findMany({
     where: { threadId },
@@ -142,4 +226,4 @@ export async function GET(req: NextRequest) {
     take: 200,
   });
   return NextResponse.json({ threadId, messages });
-}
+});

@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/prisma";
 import { createProject } from "@/lib/functions/createProject";
+import { protect } from "@/lib/auth";
+import { audit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
+export const GET = protect(async (req: NextRequest) => {
   const status = req.nextUrl.searchParams.get("status");
   const clientId = req.nextUrl.searchParams.get("clientId");
   const projects = await db.project.findMany({
@@ -16,10 +18,16 @@ export async function GET(req: NextRequest) {
     orderBy: { updatedAt: "desc" },
   });
   return NextResponse.json({ projects });
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = protect(async (req: NextRequest, { actor }) => {
   const body = await req.json();
   const result = await createProject(body);
+  await audit({
+    actor,
+    action: "api:POST /api/axis/projects",
+    target: result.project.id,
+    payload: body,
+  });
   return NextResponse.json(result, { status: 201 });
-}
+});
