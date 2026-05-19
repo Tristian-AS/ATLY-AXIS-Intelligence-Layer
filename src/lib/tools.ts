@@ -444,6 +444,67 @@ export const AXIS_TOOLS: Tool[] = [
       required: ["id"],
     },
   },
+
+  // --- External integrations ---
+  {
+    name: "stripeSyncCharges",
+    description: "Pull recent succeeded charges from Stripe, create Payment rows in Axis, and mark matching invoices paid. Idempotent.",
+    input_schema: {
+      type: "object",
+      properties: {
+        sinceDays: { type: "number", description: "How many days back to scan. Default 90." },
+        limit: { type: "number", description: "Max charges per call. Default 100, capped at 100." },
+      },
+    },
+  },
+  {
+    name: "stripeRecentCharges",
+    description: "List recent Stripe charges + current balance. Read-only.",
+    input_schema: {
+      type: "object",
+      properties: { limit: { type: "number" } },
+    },
+  },
+  {
+    name: "stripeRefund",
+    description: "Refund a Stripe charge. Pass amountCents to do a partial refund. Confirm with Tristian before calling.",
+    input_schema: {
+      type: "object",
+      properties: {
+        chargeId: { type: "string", description: "Stripe charge id (ch_... or py_...)" },
+        amountCents: { type: "number" },
+        reason: { type: "string", enum: ["duplicate", "fraudulent", "requested_by_customer"] },
+      },
+      required: ["chargeId"],
+    },
+  },
+  {
+    name: "ga4Snapshot",
+    description: "Pull a Google Analytics 4 traffic snapshot (sessions, users, page views, conversions, revenue) for a date range. Set persist=true to save as an AnalyticsSnapshot row.",
+    input_schema: {
+      type: "object",
+      properties: {
+        propertyId: { type: "string", description: "Numeric GA4 property id. Defaults to GA4_PROPERTY_ID env." },
+        startDate: { type: "string", description: "YYYY-MM-DD or 'NdaysAgo'. Default '28daysAgo'." },
+        endDate: { type: "string", description: "YYYY-MM-DD or 'today'. Default 'today'." },
+        persist: { type: "boolean" },
+      },
+    },
+  },
+  {
+    name: "calendarUpcoming",
+    description: "List upcoming events from a Google Calendar shared with the service account. Default: the next ~25 events.",
+    input_schema: {
+      type: "object",
+      properties: {
+        calendarId: { type: "string", description: "Calendar id (often an email). Defaults to GOOGLE_CALENDAR_ID env." },
+        timeMin: { type: "string", description: "RFC3339 timestamp. Default: now." },
+        timeMax: { type: "string", description: "RFC3339 timestamp. Default: unbounded." },
+        maxResults: { type: "number" },
+        q: { type: "string", description: "Free-text search query." },
+      },
+    },
+  },
 ];
 
 export type ToolName = (typeof AXIS_TOOLS)[number]["name"];
@@ -747,6 +808,33 @@ async function runToolImpl(name: string, input: unknown): Promise<unknown> {
       const i = input as { id: string };
       await db.contentCalendarPost.delete({ where: { id: i.id } });
       return { ok: true, deleted: i.id };
+    }
+
+    // ---- External integrations ----
+    case "stripeSyncCharges": {
+      const { syncStripeCharges } = await import("@/lib/integrations/stripe");
+      return await syncStripeCharges(input as { sinceDays?: number; limit?: number });
+    }
+    case "stripeRecentCharges": {
+      const { stripeRecentCharges, stripeBalance } = await import("@/lib/integrations/stripe");
+      const [charges, balance] = await Promise.all([
+        stripeRecentCharges(input as { limit?: number }),
+        stripeBalance().catch((e) => ({ error: (e as Error).message })),
+      ]);
+      return { charges, balance };
+    }
+    case "stripeRefund": {
+      const { stripeRefund } = await import("@/lib/integrations/stripe");
+      return await stripeRefund(input as { chargeId: string; amountCents?: number; reason?: string });
+    }
+    case "ga4Snapshot": {
+      const { ga4Snapshot } = await import("@/lib/integrations/ga4");
+      return await ga4Snapshot(input as Parameters<typeof ga4Snapshot>[0]);
+    }
+    case "calendarUpcoming": {
+      const { listCalendarEvents } = await import("@/lib/integrations/google-calendar");
+      const events = await listCalendarEvents(input as Parameters<typeof listCalendarEvents>[0]);
+      return { events };
     }
 
     default:
