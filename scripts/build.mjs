@@ -27,11 +27,43 @@ if (!process.env.DATABASE_URL) {
 }
 
 if (!process.env.DIRECT_URL) {
-  process.env.DIRECT_URL = process.env.DATABASE_URL;
-  console.log(
-    "[axis-build] DIRECT_URL not set; defaulting to DATABASE_URL. " +
-      "Set DIRECT_URL explicitly to the unpooled Neon URL for faster migrations."
-  );
+  const derived = deriveDirectUrl(process.env.DATABASE_URL);
+  process.env.DIRECT_URL = derived;
+  if (derived !== process.env.DATABASE_URL) {
+    console.log(
+      "[axis-build] DIRECT_URL not set; derived from DATABASE_URL by stripping " +
+        "pooler host + pgbouncer flag. For cleanest behavior, set DIRECT_URL " +
+        "explicitly in Vercel env vars (Neon's 'Direct connection' string)."
+    );
+  } else {
+    console.log(
+      "[axis-build] DIRECT_URL not set; defaulting to DATABASE_URL (no pooler " +
+        "host detected). If this is a Neon pooled URL, set DIRECT_URL explicitly."
+    );
+  }
+}
+
+/**
+ * Neon pooled URL → direct URL:
+ *   host:  ep-xxx-pooler.region.aws.neon.tech  →  ep-xxx.region.aws.neon.tech
+ *   query: drops pgbouncer=true
+ * Prisma's migrate engine uses Postgres advisory locks, which pgbouncer's
+ * transaction-pooling mode does not support — running migrations through
+ * the pooled URL deadlocks with P1002 advisory-lock timeouts.
+ */
+function deriveDirectUrl(pooledUrl) {
+  try {
+    const url = new URL(pooledUrl);
+    if (!url.hostname.includes("-pooler.") && !url.searchParams.has("pgbouncer")) {
+      // Already direct.
+      return pooledUrl;
+    }
+    url.hostname = url.hostname.replace(/-pooler\./, ".");
+    url.searchParams.delete("pgbouncer");
+    return url.toString();
+  } catch {
+    return pooledUrl;
+  }
 }
 
 const SKIP_MIGRATE = process.argv.includes("--no-migrate");
