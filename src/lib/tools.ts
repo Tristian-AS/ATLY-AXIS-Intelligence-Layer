@@ -505,6 +505,39 @@ export const AXIS_TOOLS: Tool[] = [
       },
     },
   },
+  {
+    name: "sendEmail",
+    description: "Send an email via Resend. Use for ad-hoc outreach. For invoice send, use sendInvoiceEmail instead.",
+    input_schema: {
+      type: "object",
+      properties: {
+        to: { type: "string" },
+        subject: { type: "string" },
+        text: { type: "string" },
+        html: { type: "string" },
+        cc: { type: "string" },
+        bcc: { type: "string" },
+        replyTo: { type: "string" },
+        from: { type: "string", description: "Override sender. Domain must be verified in Resend." },
+      },
+      required: ["to", "subject"],
+    },
+  },
+  {
+    name: "sendInvoiceEmail",
+    description: "Email an invoice to its client. Looks up the client's first contact email if 'to' isn't passed. Renders a cinematic ATLY-voiced email. Flips invoice.status to 'sent' unless markSent=false.",
+    input_schema: {
+      type: "object",
+      properties: {
+        invoiceId: { type: "string" },
+        to: { type: "string" },
+        cc: { type: "string" },
+        note: { type: "string", description: "Short personal note above the line items." },
+        markSent: { type: "boolean" },
+      },
+      required: ["invoiceId"],
+    },
+  },
 ];
 
 export type ToolName = (typeof AXIS_TOOLS)[number]["name"];
@@ -835,6 +868,14 @@ async function runToolImpl(name: string, input: unknown): Promise<unknown> {
       const { listCalendarEvents } = await import("@/lib/integrations/google-calendar");
       const events = await listCalendarEvents(input as Parameters<typeof listCalendarEvents>[0]);
       return { events };
+    }
+    case "sendEmail": {
+      const { sendEmail } = await import("@/lib/integrations/resend");
+      return await sendEmail(input as Parameters<typeof sendEmail>[0]);
+    }
+    case "sendInvoiceEmail": {
+      const { sendInvoiceEmail } = await import("@/lib/integrations/resend");
+      return await sendInvoiceEmail(input as Parameters<typeof sendInvoiceEmail>[0]);
     }
 
     default:
