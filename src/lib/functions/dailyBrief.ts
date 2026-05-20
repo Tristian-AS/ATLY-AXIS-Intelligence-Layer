@@ -41,6 +41,7 @@ export interface DailyBriefOptions {
     | "stripe"
     | "ga4"
     | "taxes"
+    | "lovable"
   >;
 }
 
@@ -77,6 +78,7 @@ export async function dailyBrief(opts: DailyBriefOptions = {}) {
     calendarR,
     stripeR,
     taxesR,
+    lovableR,
   ] = await Promise.all([
     // Tasks — open + doing + blocked
     skip.has("tasks")
@@ -220,6 +222,21 @@ export async function dailyBrief(opts: DailyBriefOptions = {}) {
       : estimateTaxes()
           .then(ok)
           .catch((e: Error) => fail(e.message)),
+
+    // Lovable Supabase live-read — what the Lovable UI dashboard is showing
+    skip.has("lovable")
+      ? Promise.resolve(skipped())
+      : (async () => {
+          try {
+            const { lovableSnapshot } = await import(
+              "@/lib/integrations/lovable-supabase"
+            );
+            const snap = await lovableSnapshot();
+            return ok(snap);
+          } catch (e) {
+            return fail((e as Error).message);
+          }
+        })(),
   ]);
 
   // ---- compute headline rollups ----
@@ -276,6 +293,7 @@ export async function dailyBrief(opts: DailyBriefOptions = {}) {
       calendar: calendarR,
       stripe: stripeR,
       taxes: taxesR,
+      lovable: lovableR,
     },
   };
 

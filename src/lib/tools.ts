@@ -250,6 +250,42 @@ export const AXIS_TOOLS: Tool[] = [
     },
   },
   {
+    name: "lovableInspect",
+    description: "Discover Lovable's Supabase schema. Returns every table name in the public schema with row counts + column lists. Use this FIRST when Tristian asks about data he sees in the Lovable dashboard — it'll tell you which tables exist (clients, projects, events, invoices, etc.) before you query them.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "lovableReadTable",
+    description: "Read rows from a Lovable Supabase table (read-only). Default limit 100, cap 500. Use this after lovableInspect tells you the table name.",
+    input_schema: {
+      type: "object",
+      properties: {
+        table: { type: "string", description: "Exact table name from lovableInspect." },
+        limit: { type: "number" },
+        orderBy: { type: "string", description: "Optional ORDER BY clause body, e.g. 'created_at desc'." },
+        where: { type: "string", description: "Optional WHERE clause body. Use sparingly." },
+      },
+      required: ["table"],
+    },
+  },
+  {
+    name: "lovableSnapshot",
+    description: "Best-effort canonical snapshot of Lovable's business state: clients, projects, events, invoices. Tries common table names and returns whatever it can find. Use for 'what does the dashboard show', 'survey the Lovable side' style questions.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "lovableQuery",
+    description: "Run a SELECT query against Lovable's Supabase. ONLY SELECT statements; chained statements rejected; default LIMIT 200, cap 1000. Use for aggregations the canonical helpers don't cover.",
+    input_schema: {
+      type: "object",
+      properties: {
+        sql: { type: "string", description: "A single SELECT statement." },
+        limit: { type: "number" },
+      },
+      required: ["sql"],
+    },
+  },
+  {
     name: "dailyBrief",
     description:
       "One-call survey of the whole business. Pulls tasks, active projects, outstanding invoices, recent payments, recent memory notes, last 24h of inbox (if Gmail connected), next 7 days of calendar (if connected), Stripe balance + recent charges (if configured), quarterly tax estimate. Use this for 'what should I focus on today', 'what's happening across ATLY', 'give me a daily brief', 'survey the business' style questions. Each section is independent — missing credentials degrade gracefully, the rest still returns. After calling this, write the operator-facing summary in ATLY voice: short sentences, names + numbers, no fluff. ALWAYS surface concrete identifiers (invoice numbers, event htmlLinks, charge ids) when present in the data.",
@@ -854,6 +890,23 @@ async function runToolImpl(name: string, input: unknown): Promise<unknown> {
     case "dailyBrief": {
       const { dailyBrief } = await import("@/lib/functions/dailyBrief");
       return await dailyBrief(input as Parameters<typeof dailyBrief>[0]);
+    }
+
+    case "lovableInspect": {
+      const { lovableInspect } = await import("@/lib/integrations/lovable-supabase");
+      return await lovableInspect();
+    }
+    case "lovableReadTable": {
+      const { lovableReadTable } = await import("@/lib/integrations/lovable-supabase");
+      return await lovableReadTable(input as Parameters<typeof lovableReadTable>[0]);
+    }
+    case "lovableSnapshot": {
+      const { lovableSnapshot } = await import("@/lib/integrations/lovable-supabase");
+      return await lovableSnapshot();
+    }
+    case "lovableQuery": {
+      const { lovableQuery } = await import("@/lib/integrations/lovable-supabase");
+      return await lovableQuery(input as Parameters<typeof lovableQuery>[0]);
     }
 
     case "readWiki": {
