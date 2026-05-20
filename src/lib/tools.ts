@@ -238,6 +238,18 @@ export const AXIS_TOOLS: Tool[] = [
     },
   },
   {
+    name: "listTasks",
+    description: "List tasks from the Axis DB. Default scope: open + doing + blocked (everything that's not yet done). Pass status to filter. Use this for any 'what tasks…', 'what's on the board', 'what should I focus on' question. There is no other task-reading tool — do NOT invent one.",
+    input_schema: {
+      type: "object",
+      properties: {
+        status: { type: "string", enum: ["open", "doing", "done", "blocked"] },
+        priority: { type: "string", enum: ["low", "normal", "high", "now"] },
+        clientName: { type: "string", description: "Filter by client name (case-sensitive match)." },
+      },
+    },
+  },
+  {
     name: "readWiki",
     description: "Read a markdown file under wiki/. Use for context before answering or planning.",
     input_schema: {
@@ -801,6 +813,24 @@ async function runToolImpl(name: string, input: unknown): Promise<unknown> {
         orderBy: { updatedAt: "desc" },
       });
       return { projects };
+    }
+
+    case "listTasks": {
+      const i = input as { status?: string; priority?: string; clientName?: string };
+      const where: Record<string, unknown> = {};
+      where.status = i.status ? i.status : { in: ["open", "doing", "blocked"] };
+      if (i.priority) where.priority = i.priority;
+      if (i.clientName) {
+        const c = await db.client.findFirst({ where: { name: i.clientName } });
+        if (c) where.clientId = c.id;
+      }
+      const tasks = await db.task.findMany({
+        where,
+        include: { client: { select: { name: true } }, project: { select: { name: true } } },
+        orderBy: [{ priority: "desc" }, { dueDate: "asc" }, { createdAt: "desc" }],
+        take: 100,
+      });
+      return { tasks };
     }
 
     case "readWiki": {
