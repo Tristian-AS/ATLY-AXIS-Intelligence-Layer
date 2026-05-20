@@ -250,6 +250,24 @@ export const AXIS_TOOLS: Tool[] = [
     },
   },
   {
+    name: "dailyBrief",
+    description:
+      "One-call survey of the whole business. Pulls tasks, active projects, outstanding invoices, recent payments, recent memory notes, last 24h of inbox (if Gmail connected), next 7 days of calendar (if connected), Stripe balance + recent charges (if configured), quarterly tax estimate. Use this for 'what should I focus on today', 'what's happening across ATLY', 'give me a daily brief', 'survey the business' style questions. Each section is independent — missing credentials degrade gracefully, the rest still returns. After calling this, write the operator-facing summary in ATLY voice: short sentences, names + numbers, no fluff. ALWAYS surface concrete identifiers (invoice numbers, event htmlLinks, charge ids) when present in the data.",
+    input_schema: {
+      type: "object",
+      properties: {
+        inboxHours: { type: "number", description: "Hours of email to scan. Default 24." },
+        calendarDays: { type: "number", description: "Days of calendar ahead to scan. Default 7." },
+        persist: { type: "boolean", description: "Save the brief as a journal memory_note under wiki/journal/<date>-brief.md." },
+        skip: {
+          type: "array",
+          items: { type: "string", enum: ["tasks", "projects", "invoices", "payments", "memory", "gmail", "calendar", "stripe", "ga4", "taxes"] },
+          description: "Sections to skip. Useful if a credential is known missing and you don't want noise.",
+        },
+      },
+    },
+  },
+  {
     name: "readWiki",
     description: "Read a markdown file under wiki/. Use for context before answering or planning.",
     input_schema: {
@@ -831,6 +849,11 @@ async function runToolImpl(name: string, input: unknown): Promise<unknown> {
         take: 100,
       });
       return { tasks };
+    }
+
+    case "dailyBrief": {
+      const { dailyBrief } = await import("@/lib/functions/dailyBrief");
+      return await dailyBrief(input as Parameters<typeof dailyBrief>[0]);
     }
 
     case "readWiki": {
