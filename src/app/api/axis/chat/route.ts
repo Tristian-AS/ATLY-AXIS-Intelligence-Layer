@@ -265,3 +265,22 @@ export const GET = protect(async (req: NextRequest) => {
   });
   return NextResponse.json({ threadId, messages });
 });
+
+/**
+ * DELETE /api/axis/chat?threadId=main
+ *
+ * Wipes a chat thread's history. Audit-logged. Use this when the model has
+ * been poisoned by its own past hallucinations and you need a clean slate
+ * without changing threadId values everywhere.
+ */
+export const DELETE = protect(async (req: NextRequest, { actor }) => {
+  const threadId = req.nextUrl.searchParams.get("threadId") ?? "main";
+  const result = await db.chatMessage.deleteMany({ where: { threadId } });
+  await audit({
+    actor,
+    action: "api:DELETE /api/axis/chat",
+    target: threadId,
+    payload: { deletedCount: result.count },
+  });
+  return NextResponse.json({ threadId, deleted: result.count });
+});
