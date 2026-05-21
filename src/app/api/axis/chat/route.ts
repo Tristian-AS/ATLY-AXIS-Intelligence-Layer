@@ -19,6 +19,40 @@ interface ChatBody {
 
 const MAX_TOOL_ROUNDS = 6;
 
+/**
+ * Strip out known phantom phrases from historical assistant messages before
+ * feeding them back to the model. Without this, the model anchors on its
+ * own past hallucinations as "established conversation context" and keeps
+ * regurgitating them no matter how strict the system prompt gets.
+ *
+ * Add to this list whenever a new hallucination pattern appears.
+ */
+const PHANTOM_PHRASE_PATTERNS: Array<{ pattern: RegExp; replacement: string }> = [
+  // The "claude_code_bridge" / "Claude Code Bridge" / "claude code bridge" family
+  {
+    pattern: /\bclaude[_ -]?code[_ -]?bridge\b/gi,
+    replacement: "[redacted-phantom]",
+  },
+  // The non-existent CLAUDE_CODE_PLUGIN_ENABLED env var
+  {
+    pattern: /\bCLAUDE_CODE_PLUGIN_ENABLED\b/g,
+    replacement: "[redacted-phantom]",
+  },
+  // The fictional admin "Isaiah" who needs to toggle things
+  {
+    pattern: /\bIsaiah needs? to\b[^.]*\./gi,
+    replacement: "[redacted-phantom].",
+  },
+];
+
+function sanitizeAssistantHistory(content: string): string {
+  let out = content;
+  for (const { pattern, replacement } of PHANTOM_PHRASE_PATTERNS) {
+    out = out.replace(pattern, replacement);
+  }
+  return out;
+}
+
 async function loadHistory(threadId: string): Promise<Anthropic.MessageParam[]> {
   const rows = await db.chatMessage.findMany({
     where: { threadId },
@@ -28,7 +62,8 @@ async function loadHistory(threadId: string): Promise<Anthropic.MessageParam[]> 
   const out: Anthropic.MessageParam[] = [];
   for (const m of rows) {
     if (m.role === "user") out.push({ role: "user", content: m.content });
-    else if (m.role === "assistant") out.push({ role: "assistant", content: m.content });
+    else if (m.role === "assistant")
+      out.push({ role: "assistant", content: sanitizeAssistantHistory(m.content) });
   }
   return out;
 }
